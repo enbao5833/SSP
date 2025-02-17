@@ -12,7 +12,8 @@ class GeneticAlgorithm:
         self.arcgraph = self.build_graph()
 
     def build_graph(self):
-        graph = {node: {} for node in range(1, self.network.num_nodes + 1)}
+        # 将每个节点对应的字典值初始化为集合
+        graph = {node: set() for node in range(1, self.network.num_nodes + 1)}
         for arc in self.network.arcs:
             graph[arc[0]].add(arc[1])
         return graph
@@ -110,10 +111,8 @@ class GeneticAlgorithm:
                 index1 = next((i for i, arc in enumerate(chromosome1) if node in arc), None)
                 index2 = next((i for i, arc in enumerate(chromosome2) if node in arc), None)
                 if index1 is not None and index2 is not None:
-                    new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:] if
-                                                                  arc not in chromosome1[:index1 + 1]]
-                    new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:] if
-                                                                  arc not in chromosome2[:index2 + 1]]
+                    new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
+                    new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:]]
                     fitness1 = self.fitness(new_chromosome1)
                     fitness2 = self.fitness(new_chromosome2)
                     if fitness1 > best_fitness:
@@ -124,10 +123,8 @@ class GeneticAlgorithm:
                         best_gene_pair = (index2, index1)
             if best_gene_pair:
                 index1, index2 = best_gene_pair
-                new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:] if
-                                                              arc not in chromosome1[:index1 + 1]]
-                new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:] if
-                                                              arc not in chromosome2[:index2 + 1]]
+                new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
+                new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:]]
                 return new_chromosome1, new_chromosome2
         else:
             # 当没有公共节点时的处理逻辑
@@ -143,10 +140,8 @@ class GeneticAlgorithm:
             if valid_pairs:
                 # 随机选择一对进行单点交叉
                 index1, index2 = random.choice(valid_pairs)
-                new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:] if
-                                                              arc not in chromosome1[:index1 + 1]]
-                new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:] if
-                                                              arc not in chromosome2[:index2 + 1]]
+                new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
+                new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:]]
                 return new_chromosome1, new_chromosome2
 
         return chromosome1, chromosome2

@@ -20,14 +20,14 @@ class StochasticNetwork:
             low, mode, high = dist[1], dist[2], dist[3]
             return np.random.triangular(low, mode, high)
 
-    def simulate_path_length(self, path, num_simulations=5000):
+    def simulate_path_length(self, path, num_simulations=1000):
         lengths = []
         for _ in range(num_simulations):
             length = sum(self.get_random_length(arc) for arc in path)
             lengths.append(length)
         return np.mean(lengths), lengths
 
-    def calculate_probability(self, path, threshold, num_simulations=5000):
+    def calculate_probability(self, path, threshold, num_simulations=1000):
         if not path:
             return 0.0
         _, lengths = self.simulate_path_length(path, num_simulations)
@@ -35,7 +35,7 @@ class StochasticNetwork:
         prob = count / num_simulations
         return min(max(prob, 0.0), 1.0)
 
-    def calculate_alpha_shortest(self, path, alpha, num_simulations=5000):
+    def calculate_alpha_shortest(self, path, alpha, num_simulations=1000):
         _, lengths = self.simulate_path_length(path, num_simulations)
         sorted_lengths = sorted(lengths)
         index = int((1 - alpha) * num_simulations)

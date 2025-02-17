@@ -102,4 +102,8 @@ class GeneticAlgorithm:
         elif objective == 'alpha' and alpha is not None:
             alpha_length = self.network.calculate_alpha_shortest(path, alpha)
             return 1 / alpha_length
+        else:
+            # 处理未定义的 objective 值，可以抛出异常或者返回一个默认值
+            raise ValueError(f"未定义的 objective 值: {objective}")
+
 
