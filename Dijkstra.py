@@ -8,6 +8,7 @@ class GeneticAlgorithm:
         self.mutation_prob = mutation_prob
         self.generations = generations
         self.population = []
+        self.end = 0
         self.a = a
         self.arcgraph = self.build_graph()
 
@@ -74,7 +75,7 @@ class GeneticAlgorithm:
             probs = [prob / total for prob in probs]
             current = random.choices(valid_nodes, weights=probs)[0]
 
-        return []
+        return path
 
 
     def rank_based_evaluation(self):
@@ -102,25 +103,34 @@ class GeneticAlgorithm:
 
     def crossover(self, chromosome1, chromosome2):
         # 找出两个父代染色体中的公共节点
-        common_nodes = set([node for arc in chromosome1 for node in arc]).intersection(
-            set([node for arc in chromosome2 for node in arc]))
+        # 找出两个父代染色体中的公共节点，去掉起始和结束节点
+        start_node1, end_node1 = chromosome1[0][0], chromosome1[-1][1]
+        start_node2, end_node2 = chromosome2[0][0], chromosome2[-1][1]
+        nodes_in_chromosome1 = {node for arc in chromosome1[1:-1] for node in arc if
+                                node not in (start_node1, end_node1)}
+        nodes_in_chromosome2 = {node for arc in chromosome2[1:-1] for node in arc if
+                                node not in (start_node2, end_node2)}
+        # 求两个集合的交集，得到公共节点
+        common_nodes = nodes_in_chromosome1.intersection(nodes_in_chromosome2)
         if common_nodes:
             best_gene_pair = None
             best_fitness = float('-inf')
             for node in common_nodes:
-                index1 = next((i for i, arc in enumerate(chromosome1) if node in arc), None)
-                index2 = next((i for i, arc in enumerate(chromosome2) if node in arc), None)
+                index1 = next((i for i, arc in enumerate(chromosome1) if node == arc[1]), None)
+                index2 = next((i for i, arc in enumerate(chromosome2) if node == arc[1]), None)
                 if index1 is not None and index2 is not None:
                     new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
                     new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:]]
-                    fitness1 = self.fitness(new_chromosome1)
-                    fitness2 = self.fitness(new_chromosome2)
-                    if fitness1 > best_fitness:
-                        best_fitness = fitness1
-                        best_gene_pair = (index1, index2)
-                    if fitness2 > best_fitness:
-                        best_fitness = fitness2
-                        best_gene_pair = (index2, index1)
+                    # 检查新生成的路径是否连通
+                    if self.is_path_connected(new_chromosome1) and self.is_path_connected(new_chromosome2):
+                        fitness1 = self.fitness(new_chromosome1)
+                        fitness2 = self.fitness(new_chromosome2)
+                        if fitness1 > best_fitness:
+                            best_fitness = fitness1
+                            best_gene_pair = (index1, index2)
+                        if fitness2 > best_fitness:
+                            best_fitness = fitness2
+                            best_gene_pair = (index2, index1)
             if best_gene_pair:
                 index1, index2 = best_gene_pair
                 new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
@@ -135,27 +145,51 @@ class GeneticAlgorithm:
                     start2, end2 = chromosome2[j]
                     # 使用提前构建的图信息检查基因对在网络中权值是否不为零
                     if end1 in self.arcgraph.get(start2, []) and end2 in self.arcgraph.get(start1, []):
-                        valid_pairs.append((i, j))
+                        new_chromosome1 = chromosome1[:i + 1] + chromosome2[j + 1:]
+                        new_chromosome2 = chromosome2[:j + 1] + chromosome1[i + 1:]
+                        # 检查新生成的路径是否连通
+                        if self.is_path_connected(new_chromosome1) and self.is_path_connected(new_chromosome2):
+                            valid_pairs.append((i, j))
 
             if valid_pairs:
                 # 随机选择一对进行单点交叉
                 index1, index2 = random.choice(valid_pairs)
                 new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
                 new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:]]
+                print('old valid')
+                print(chromosome1,chromosome2)
+                print(new_chromosome1,new_chromosome2)
                 return new_chromosome1, new_chromosome2
 
         return chromosome1, chromosome2
+
+    def is_path_connected(self, path):
+        """
+        检查路径是否连通
+        """
+        if not path:
+            return False
+        for i in range(len(path) - 1):
+            start, end = path[i]
+            next_start, _ = path[i + 1]
+            if end != next_start:
+                return False
+        return True
+
     def mutate(self, path):
         if random.random() < self.mutation_prob:
             index = random.randint(0, len(path) - 1)
             start_node = path[index][0]
             mutated_path = path[:index]
-            mutated_path += self.random_dijkstra(start_node, path[-1][1])
+            mutated_path += self.random_dijkstra(start_node, self.end)
+            if mutated_path[-1][1] != self.end:
+                print("mutate error")
             return mutated_path
         return path
 
 
     def run(self, start, end, objective='mean', threshold=None, alpha=None):
+        self.end=end
         self.initialize_population(start, end)
         for generation in range(self.generations):
             new_population = []
