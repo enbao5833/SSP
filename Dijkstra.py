@@ -105,11 +105,10 @@ class GeneticAlgorithm:
         # 找出两个父代染色体中的公共节点
         # 找出两个父代染色体中的公共节点，去掉起始和结束节点
         start_node1, end_node1 = chromosome1[0][0], chromosome1[-1][1]
-        start_node2, end_node2 = chromosome2[0][0], chromosome2[-1][1]
         nodes_in_chromosome1 = {node for arc in chromosome1[1:-1] for node in arc if
                                 node not in (start_node1, end_node1)}
         nodes_in_chromosome2 = {node for arc in chromosome2[1:-1] for node in arc if
-                                node not in (start_node2, end_node2)}
+                                node not in (start_node1, end_node1)}
         # 求两个集合的交集，得到公共节点
         common_nodes = nodes_in_chromosome1.intersection(nodes_in_chromosome2)
         if common_nodes:
@@ -121,46 +120,26 @@ class GeneticAlgorithm:
                 if index1 is not None and index2 is not None:
                     new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
                     new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:]]
-                    # 检查新生成的路径是否连通
                     if self.is_path_connected(new_chromosome1) and self.is_path_connected(new_chromosome2):
                         fitness1 = self.fitness(new_chromosome1)
                         fitness2 = self.fitness(new_chromosome2)
                         if fitness1 > best_fitness:
-                            best_fitness = fitness1
-                            best_gene_pair = (index1, index2)
+                            best_fitness=fitness1
+                            best_gene_pair=(index1,index2)
                         if fitness2 > best_fitness:
-                            best_fitness = fitness2
-                            best_gene_pair = (index2, index1)
+                            best_fitness=fitness2
+                            best_gene_pair=(index1,index2)
             if best_gene_pair:
                 index1, index2 = best_gene_pair
                 new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
                 new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:]]
+                if new_chromosome1[-1][1]!=self.end or new_chromosome2[-1][1]!=self.end:
+                    print("path error")
+                    print(new_chromosome1,new_chromosome2)
+                    print(best_gene_pair)
+                    print(chromosome1,chromosome2)
+                    print(common_nodes)
                 return new_chromosome1, new_chromosome2
-        else:
-            # 当没有公共节点时的处理逻辑
-            valid_pairs = []
-            for i in range(len(chromosome1) - 1):
-                for j in range(len(chromosome2) - 1):
-                    start1, end1 = chromosome1[i]
-                    start2, end2 = chromosome2[j]
-                    # 使用提前构建的图信息检查基因对在网络中权值是否不为零
-                    if end1 in self.arcgraph.get(start2, []) and end2 in self.arcgraph.get(start1, []):
-                        new_chromosome1 = chromosome1[:i + 1] + chromosome2[j + 1:]
-                        new_chromosome2 = chromosome2[:j + 1] + chromosome1[i + 1:]
-                        # 检查新生成的路径是否连通
-                        if self.is_path_connected(new_chromosome1) and self.is_path_connected(new_chromosome2):
-                            valid_pairs.append((i, j))
-
-            if valid_pairs:
-                # 随机选择一对进行单点交叉
-                index1, index2 = random.choice(valid_pairs)
-                new_chromosome1 = chromosome1[:index1 + 1] + [arc for arc in chromosome2[index2 + 1:]]
-                new_chromosome2 = chromosome2[:index2 + 1] + [arc for arc in chromosome1[index1 + 1:]]
-                print('old valid')
-                print(chromosome1,chromosome2)
-                print(new_chromosome1,new_chromosome2)
-                return new_chromosome1, new_chromosome2
-
         return chromosome1, chromosome2
 
     def is_path_connected(self, path):
@@ -174,6 +153,8 @@ class GeneticAlgorithm:
             next_start, _ = path[i + 1]
             if end != next_start:
                 return False
+        if path[-1][1]!=self.end:
+            return False
         return True
 
     def mutate(self, path):
@@ -188,10 +169,15 @@ class GeneticAlgorithm:
         return path
 
 
-    def run(self, start, end, objective='mean', threshold=None, alpha=None):
+    def run(self, start, end, objective='mean', threshold=None, alpha=None, fitness_change_threshold=1e-5):
         self.end=end
         self.initialize_population(start, end)
-        for generation in range(self.generations):
+        current_generation = 1
+        add_fitness = 0
+        avg_fitness = 0
+        avg_new_fitness = 0
+        fitness_change = float('inf')
+        while current_generation < self.generations and fitness_change > fitness_change_threshold:
             new_population = []
             for _ in range(self.pop_size // 2):
                 parent1 = self.selection()
@@ -203,10 +189,18 @@ class GeneticAlgorithm:
                 new_population.append(self.mutate(child1))
                 new_population.append(self.mutate(child2))
             self.population = new_population
+            if self.population:
+                current_best_path = max(self.population,
+                                        key=lambda path: self.fitness(path, objective, threshold, alpha))
+                add_fitness += self.fitness(current_best_path, objective, threshold, alpha)
+                avg_new_fitness = add_fitness / current_generation
+                fitness_change = abs(avg_fitness - avg_new_fitness)
+                avg_fitness = avg_new_fitness
+            current_generation += 1
         # 确保传递所需参数
         if self.population:
             best_path = max(self.population, key=lambda path: self.fitness(path, objective, threshold, alpha))
-            return best_path
+            return best_path,current_generation
         else:
             print("警告：最终种群为空！")
             return []

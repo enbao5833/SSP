@@ -9,7 +9,11 @@ class StochasticNetwork:
         dist = self.arc_lengths[arc]
         if dist[0] == 'N':
             mean, stddev = dist[1], dist[2]
-            return np.random.normal(mean, stddev)
+            while True:
+                length = np.random.normal(mean, stddev)
+                if length > 0:
+                    break
+            return length
         elif dist[0] == 'U':
             low, high = dist[1], dist[2]
             return np.random.uniform(low, high)
